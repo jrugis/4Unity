@@ -2,83 +2,72 @@
 #
 # mat2bin_Duct.py
 
-import matplotlib.cm as mp
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy.io as sc
 import struct
 
-#import read_write as rw
+uname = '4Unity_duct.bin'                 # binary output file
+dname = 'dynamic_data/lumen_prop.mat'     # Matlab data input files
+fname = 'dynamic_data/dynamic_flow.mat'   #
 
 ##################################################################
 # functions
 ##################################################################
 
-# write duct lumen disc values
-def write_disc(f, vals):
-  f.write(struct.pack('i', vals.shape[0]))    # number of vals
-  for val in vals:
-    f.write(struct.pack('fff', val[0], val[1], val[2]))
+# get lumen segment start and end indices (into discs)
+def get_lidx(duct_prop):
+  dsegs = duct_prop['lumen_prop']['d_s_Vec'][0,0][0]     # duct segment per disc (strange indexing!)
+  lidx = np.zeros((dsegs[-1],2), dtype=int)              # final disc duct segment is the segment count
+  s = 1  # previous segment number (Note: the first start index is already set to zero)
+  for idx, seg in enumerate(dsegs):
+    if seg != s:
+      lidx[s,0] = idx        # start index
+      lidx[s-1,1] = idx-1    # previous end index
+      s = seg
+  lidx[-1,1] = dsegs.shape[0] - 1 # final end index
+  return lidx
+  
+# write lumen line segments to bin file for unity
+def write_lsegs(f, lidx, duct_prop):
+  dcenters = duct_prop['lumen_prop']['disc_centres'][0,0]   # read in duct properties from matlab
+  dlengths = duct_prop['lumen_prop']['disc_length'][0,0][0] #     uses strange indexing!
+  nsegs = lidx.shape[0]
+  print("duct segments:", nsegs)
+  f.write(struct.pack('i', nsegs))
+  for i in range(nsegs):
+    lvect = dcenters[lidx[i,0]+1] - dcenters[lidx[i,0]]          # segment direction vector
+    pstart = dcenters[lidx[i,0]] - (0.5 * lvect)                 # segment start point 
+    pend   = dcenters[lidx[i,1]] + (0.5 * dlengths[lidx[i,1]] * lvect) # segment end point
+    f.write(struct.pack('fff', pstart[0], pstart[1], pstart[2])) # write start point
+    f.write(struct.pack('fff', pend[0], pend[1], pend[2]))       # write end point
+ 
+# write flow data to bin file for unity
+def write_flow(f, lidx, flow):
+  nsteps = flow.shape[0]
+  print("timesteps:", nsteps)
+  f.write(struct.pack('i', nsteps))
+  for time_step in flow:
+    for idx in lidx:
+      f.write(struct.pack('f', time_step[idx[1]])) 
   return
-
-# write lumen line segments to hololens file
-#def write_lsegs_4HL(f, lsegs):
-#  f.write(struct.pack('i', lsegs.shape[0]))                      # segment count
-#  for seg in lsegs:
-#    f.write(struct.pack('fff', seg[0][0], seg[0][1], seg[0][2])) # start point
-#    f.write(struct.pack('fff', seg[1][0], seg[1][1], seg[1][2])) # end point
-#  return
-
-# write lumen flow data to hololens file
-#def write_fdata_4HL(start, finish, stride, f, fdata):
-#  count = fdata[0][0][start:finish:stride].shape[0] # time step count     
-#  print 'time steps:', count
-#  min = fdata[37][0][start:finish:stride].min() # HARD CODED TO EXIT SEGMENT!!!
-#  max = fdata[37][0][start:finish:stride].max() # HARD CODED TO EXIT SEGMENT!!!
-#  #print 'data min/max:', min, max
-#  f.write(struct.pack('i', count))
-#  for seg in fdata:
-#    trim = seg[0][start:finish:stride] / max
-#    #print trim.max()
-#    for t in trim:
-#      f.write(struct.pack('f', t))                  # flow rate (per segment)
-#  return
-
+  
 ##################################################################
 # main program
 ##################################################################
 
-uname = '4Unity_duct.bin'
-dname = 'dynamic_data/lumen_prop.mat'
-print()
+f1 = open(uname, 'wb')                # create binary file for Unity
 
-# create binary file for Unity
-f1 = open(uname, 'wb')
-print('       Unity duct data file: ' + uname)
-
-# convert and write duct lumen disc data
-print('Matlab duct properties file: ' + dname)
-duct_prop = sc.loadmat(dname)
+duct_prop = sc.loadmat(dname)         # get duct segment data (Matlab)
 #print('keys:', duct_prop.keys())
 #print(duct_prop['lumen_prop'].dtype)
-write_disc(f1, duct_prop['lumen_prop']['disc_centres'][0,0])
-
-
-
-
-# write lumen tree data
-#write_lsegs_4HL(f1, rw.read_lumen(tname))
+lidx = get_lidx(duct_prop)            # get lumen segment start and end indices
+write_lsegs(f1, lidx, duct_prop)      # write duct segment data (binary)
 
 # write flow data
-#print 'matlab data file: ' + fname
-#dist = sc.loadmat(fname)
-##print 'keys:', dist.keys()
-#write_fdata_4HL(9500, 30840, 32, f1, dist[dist_key])
-#plt.plot(dist[dist_key][37, 0][9500:30840:32])
-#plt.show()
+flow = sc.loadmat(fname)
+write_flow(f1, lidx, flow['dynamic_flow'])
 
-# close binary file
-f1.close()
-print()
+f1.close()    # close binary file
+
 
 
