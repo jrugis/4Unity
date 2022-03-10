@@ -14,41 +14,24 @@ fname = 'dynamic_data/dynamic_flow.mat'   #
 # functions
 ##################################################################
 
-# get lumen segment start and end indices (into discs)
-def get_lidx(duct_prop):
-  dsegs = duct_prop['lumen_prop']['d_s_Vec'][0,0][0]     # duct segment per disc (strange indexing!)
-  lidx = np.zeros((dsegs[-1],2), dtype=int)              # final disc duct segment is the segment count
-  s = 1  # previous segment number (Note: the first start index is already set to zero)
-  for idx, seg in enumerate(dsegs):
-    if seg != s:
-      lidx[s,0] = idx        # start index
-      lidx[s-1,1] = idx-1    # previous end index
-      s = seg
-  lidx[-1,1] = dsegs.shape[0] - 1 # final end index
-  return lidx
-  
 # write lumen line segments to bin file for unity
-def write_lsegs(f, lidx, duct_prop):
+def write_lsegs(f, duct_prop):
   dcenters = duct_prop['lumen_prop']['disc_centres'][0,0]   # read in duct properties from matlab
-  dlengths = duct_prop['lumen_prop']['disc_length'][0,0][0] #     uses strange indexing!
-  nsegs = lidx.shape[0]
-  print("duct segments:", nsegs)
-  f.write(struct.pack('i', nsegs))
-  for i in range(nsegs):
-    lvect = dcenters[lidx[i,0]+1] - dcenters[lidx[i,0]]          # segment direction vector
-    pstart = dcenters[lidx[i,0]] - (0.5 * lvect)                 # segment start point 
-    pend   = dcenters[lidx[i,1]] + (0.5 * dlengths[lidx[i,1]] * lvect) # segment end point
-    f.write(struct.pack('fff', pstart[0], pstart[1], pstart[2])) # write start point
-    f.write(struct.pack('fff', pend[0], pend[1], pend[2]))       # write end point
+  ndiscs = dcenters.shape[0]
+  print("duct discs:", ndiscs)
+  f.write(struct.pack('i', ndiscs))
+  for p in dcenters:
+    f.write(struct.pack('fff', p[0], p[1], p[2])) # write disc center coordinates
  
 # write flow data to bin file for unity
-def write_flow(f, lidx, flow):
+def write_flow(f, flow):
   nsteps = flow.shape[0]
   print("timesteps:", nsteps)
   f.write(struct.pack('i', nsteps))
+  fmax = np.max(flow)
   for time_step in flow:
-    for idx in lidx:
-      f.write(struct.pack('f', time_step[idx[1]])) 
+    for df in time_step:   # disc flow
+      f.write(struct.pack('f', df / fmax)) 
   return
   
 ##################################################################
@@ -57,15 +40,14 @@ def write_flow(f, lidx, flow):
 
 f1 = open(uname, 'wb')                # create binary file for Unity
 
-duct_prop = sc.loadmat(dname)         # get duct segment data (Matlab)
+duct_prop = sc.loadmat(dname)         # get duct disc data (Matlab)
 #print('keys:', duct_prop.keys())
 #print(duct_prop['lumen_prop'].dtype)
-lidx = get_lidx(duct_prop)            # get lumen segment start and end indices
-write_lsegs(f1, lidx, duct_prop)      # write duct segment data (binary)
+write_lsegs(f1, duct_prop)      # write duct disc data (binary)
 
 # write flow data
 flow = sc.loadmat(fname)
-write_flow(f1, lidx, flow['dynamic_flow'])
+write_flow(f1, flow['dynamic_flow'])
 
 f1.close()    # close binary file
 
