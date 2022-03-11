@@ -14,15 +14,30 @@ fname = 'dynamic_data/dynamic_flow.mat'   #
 # functions
 ##################################################################
 
-# write lumen line segments to bin file for unity
-def write_lsegs(f, duct_prop):
-  dcenters = duct_prop['lumen_prop']['disc_centres'][0,0]   # read in duct properties from matlab
-  ndiscs = dcenters.shape[0]
+# write duct disc data to bin file for unity
+def write_discs(f, duct_prop):
+  ndiscs = duct_prop['lumen_prop']['n_disc'][0,0][0,0]    # read in duct properties from matlab
+  dcenters = duct_prop['lumen_prop']['disc_centres'][0,0]   
+  darea = duct_prop['lumen_prop']['disc_X_area'][0,0][0]
+  dsegs = duct_prop['lumen_prop']['d_s_Vec'][0,0][0]
+
+  dvects = np.zeros((ndiscs,3))  # calculate disc direction vectors
+  s = 0                                   # previous duct segment
+  for i in range(ndiscs):
+    if dsegs[i] != s:                     # moved to next duct segment?   
+      dvect = dcenters[i+1] - dcenters[i] # use first two segments points for direction 
+      s = dsegs[i]
+    dvects[i] = dvect                     # same direction for all discs in each segment 
+
   print("duct discs:", ndiscs)
-  f.write(struct.pack('i', ndiscs))
-  for p in dcenters:
-    f.write(struct.pack('fff', p[0], p[1], p[2])) # write disc center coordinates
- 
+  f.write(struct.pack('i', ndiscs))                     # number of discs
+  for v in dcenters:
+    f.write(struct.pack('fff', v[0], v[1], v[2]))       # disc center coordinates
+  for x in darea:
+    f.write(struct.pack('f', 2.0 * np.sqrt(x / np.pi))) # disc diameters
+  for v in dvects:
+    f.write(struct.pack('fff', v[0], v[1], v[2]))       # disc direction vectors
+
 # write flow data to bin file for unity
 def write_flow(f, flow):
   nsteps = flow.shape[0]
@@ -43,7 +58,7 @@ f1 = open(uname, 'wb')                # create binary file for Unity
 duct_prop = sc.loadmat(dname)         # get duct disc data (Matlab)
 #print('keys:', duct_prop.keys())
 #print(duct_prop['lumen_prop'].dtype)
-write_lsegs(f1, duct_prop)      # write duct disc data (binary)
+write_discs(f1, duct_prop)      # write duct disc data (binary)
 
 # write flow data
 flow = sc.loadmat(fname)
