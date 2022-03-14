@@ -6,7 +6,7 @@ import numpy as np
 import scipy.io as sc
 import struct
 
-uname = '4Unity_duct.bin'                 # binary output file
+uname = '_4Unity_duct.bin'                 # binary output file
 dname = 'dynamic_data/lumen_prop.mat'     # Matlab data input files
 fname = 'dynamic_data/dynamic_flow.mat'   #
 
@@ -19,8 +19,10 @@ def write_discs(f, duct_prop):
   ndiscs = duct_prop['lumen_prop']['n_disc'][0,0][0,0]    # read in duct properties from matlab
   dcenters = duct_prop['lumen_prop']['disc_centres'][0,0]   
   darea = duct_prop['lumen_prop']['disc_X_area'][0,0][0]
+  dleng = duct_prop['lumen_prop']['disc_length'][0,0][0]
   dsegs = duct_prop['lumen_prop']['d_s_Vec'][0,0][0]
-
+  print(dleng)
+  
   dvects = np.zeros((ndiscs,3))  # calculate disc direction vectors
   s = 0                                   # previous duct segment
   for i in range(ndiscs):
@@ -35,6 +37,8 @@ def write_discs(f, duct_prop):
     f.write(struct.pack('fff', v[0], v[1], v[2]))       # disc center coordinates
   for x in darea:
     f.write(struct.pack('f', 2.0 * np.sqrt(x / np.pi))) # disc diameters
+  for x in dleng:
+    f.write(struct.pack('f', x))                        # disc lengths
   for v in dvects:
     f.write(struct.pack('fff', v[0], v[1], v[2]))       # disc direction vectors
 
