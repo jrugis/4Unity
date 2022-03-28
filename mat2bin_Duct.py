@@ -6,7 +6,7 @@ import numpy as np
 import scipy.io as sc
 import struct
 
-uname = '_4Unity_duct.bin'                 # binary output file
+uname = '_4Unity_duct.bin'                # binary output file
 dname = 'dynamic_data/lumen_prop.mat'     # Matlab data input files
 fname = 'dynamic_data/dynamic_flow.mat'   #
 
@@ -14,14 +14,13 @@ fname = 'dynamic_data/dynamic_flow.mat'   #
 # functions
 ##################################################################
 
-# write duct disc data to bin file for unity
-def write_discs(f, duct_prop):
+# write fixed duct data to bin file for unity
+def write_fixed(f, duct_prop):
   ndiscs = duct_prop['lumen_prop']['n_disc'][0,0][0,0]    # read in duct properties from matlab
   dcenters = duct_prop['lumen_prop']['disc_centres'][0,0]   
   darea = duct_prop['lumen_prop']['disc_X_area'][0,0][0]
   dleng = duct_prop['lumen_prop']['disc_length'][0,0][0]
   dsegs = duct_prop['lumen_prop']['d_s_Vec'][0,0][0]
-  print(dleng)
   
   dvects = np.zeros((ndiscs,3))  # calculate disc direction vectors
   s = 0                                   # previous duct segment
@@ -43,14 +42,34 @@ def write_discs(f, duct_prop):
     f.write(struct.pack('fff', v[0], v[1], v[2]))       # disc direction vectors
 
 # write flow data to bin file for unity
-def write_flow(f, flow):
+def write_dynamic(f, flow):
+
   nsteps = flow.shape[0]
   print("timesteps:", nsteps)
-  f.write(struct.pack('i', nsteps))
-  fmax = np.max(flow)
+  f.write(struct.pack('i', nsteps))       # number of time steps
+  
+  for i in range(nsteps):
+    # ********* HARD CODED *************
+    if i <= 5000: t = i * 0.1    #  5000 steps with 0.1s period
+    else: t = 500.0 + (i - 5000) #  remaining steps with 1s period
+    # **********************************
+    f.write(struct.pack('f', t))          # simulation time at each step   
+    print(t)
+
+  # ********* HARD CODED *************
+  nvars = 1                               
+  # **********************************
+  f.write(struct.pack('i', nvars))        # number of simulated values
+
+  f.write(struct.pack('f', flow.min()))  # minimum flow value
+  # TO DO - put all minimum values here
+  
+  f.write(struct.pack('f', flow.max()))  # maximum flow value
+  # TO DO - put all maximum values here
+  
   for time_step in flow:
     for df in time_step:   # disc flow
-      f.write(struct.pack('f', df / fmax)) 
+      f.write(struct.pack('f', df)) 
   return
   
 ##################################################################
@@ -62,11 +81,11 @@ f1 = open(uname, 'wb')                # create binary file for Unity
 duct_prop = sc.loadmat(dname)         # get duct disc data (Matlab)
 #print('keys:', duct_prop.keys())
 #print(duct_prop['lumen_prop'].dtype)
-write_discs(f1, duct_prop)      # write duct disc data (binary)
+write_fixed(f1, duct_prop)      # write fixed duct data (binary)
 
-# write flow data
+# write dynamic data
 flow = sc.loadmat(fname)
-write_flow(f1, flow['dynamic_flow'])
+write_dynamic(f1, flow['dynamic_flow'])
 
 f1.close()    # close binary file
 
