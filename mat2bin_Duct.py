@@ -9,18 +9,19 @@ import struct
 uname = '_4Unity_duct.bin'                # binary output file
 dname = 'dynamic_data/lumen_prop.mat'     # Matlab data input files
 fname = 'dynamic_data/dynamic_flow.mat'   #
+cname = 'dynamic_data/dynamic_data.mat'   #
 
 ##################################################################
 # functions
 ##################################################################
 
 # write fixed duct data to bin file for unity
-def write_fixed(f, duct_prop):
-  ndiscs = duct_prop['lumen_prop']['n_disc'][0,0][0,0]    # read in duct properties from matlab
-  dcenters = duct_prop['lumen_prop']['disc_centres'][0,0]   
-  darea = duct_prop['lumen_prop']['disc_X_area'][0,0][0]
-  dleng = duct_prop['lumen_prop']['disc_length'][0,0][0]
-  dsegs = duct_prop['lumen_prop']['d_s_Vec'][0,0][0]
+def write_fixed(f,  ml):
+  ndiscs = ml['lumen_prop']['n_disc'][0,0][0,0]    # read in duct properties from matlab
+  dcenters = ml['lumen_prop']['disc_centres'][0,0]   
+  darea = ml['lumen_prop']['disc_X_area'][0,0][0]
+  dleng = ml['lumen_prop']['disc_length'][0,0][0]
+  dsegs = ml['lumen_prop']['d_s_Vec'][0,0][0]
   
   dvects = np.zeros((ndiscs,3))  # calculate disc direction vectors
   s = 0                                   # previous duct segment
@@ -42,50 +43,58 @@ def write_fixed(f, duct_prop):
     f.write(struct.pack('fff', v[0], v[1], v[2]))       # disc direction vectors
 
 # write flow data to bin file for unity
-def write_dynamic(f, flow):
-
-  nsteps = flow.shape[0]
+def write_dynamic(f, ml_f, ml_c):
+  nsteps = ml_f.shape[0]
   print("timesteps:", nsteps)
   f.write(struct.pack('i', nsteps))       # number of time steps
-  
+  # ********* HARD CODED *************
+  f.write(struct.pack('ii', 0, 4000))     # stimulation ON / OFF time steps
+  # **********************************
+
   for i in range(nsteps):
     # ********* HARD CODED *************
     if i <= 5000: t = i * 0.1    #  5000 steps with 0.1s period
     else: t = 500.0 + (i - 5000) #  remaining steps with 1s period
     # **********************************
     f.write(struct.pack('f', t))          # simulation time at each step   
-    print(t)
 
   # ********* HARD CODED *************
-  nvars = 1                               
+  ndisc = 191  # number of discs
+  ndvars = 7   #    "      disc vars (flow + 6x concentrations) 
+  ncell = 101  #    "      active cells
+  ncvars = 9   #    "      cell concentrations                           
   # **********************************
-  f.write(struct.pack('i', nvars))        # number of simulated values
+  f.write(struct.pack('i', (ndisc * ndvars) + (ncell * ncvars))) # total number of simulated values
 
-  f.write(struct.pack('f', flow.min()))  # minimum flow value
+  #f.write(struct.pack('f', flow.min()))  # minimum flow value
   # TO DO - put all minimum values here
   
-  f.write(struct.pack('f', flow.max()))  # maximum flow value
+  #f.write(struct.pack('f', flow.max()))  # maximum flow value
   # TO DO - put all maximum values here
   
-  for time_step in flow:
-    for df in time_step:   # disc flow
-      f.write(struct.pack('f', df)) 
+  for df, dc in zip(ml_f, ml_c):   # for each time step...
+    for val in df: 
+      f.write(struct.pack('f', val))     # write flow data
+    for val in dc: 
+      f.write(struct.pack('f', val))     # write concentration data
   return
   
+
 ##################################################################
 # main program
 ##################################################################
 
 f1 = open(uname, 'wb')                # create binary file for Unity
 
-duct_prop = sc.loadmat(dname)         # get duct disc data (Matlab)
-#print('keys:', duct_prop.keys())
-#print(duct_prop['lumen_prop'].dtype)
-write_fixed(f1, duct_prop)      # write fixed duct data (binary)
+ml = sc.loadmat(dname)         # get duct disc data (Matlab)
+#print('keys:', ml.keys())
+#print(ml['lumen_prop'].dtype)
+write_fixed(f1, ml)      # write fixed duct data (binary)
 
 # write dynamic data
-flow = sc.loadmat(fname)
-write_dynamic(f1, flow['dynamic_flow'])
+ml_flow = sc.loadmat(fname)  # disc flow rates
+ml_conc = sc.loadmat(cname)  # disc and cell concentrations
+write_dynamic(f1, ml_flow['dynamic_flow'], ml_conc['dynamic_data'])
 
 f1.close()    # close binary file
 
