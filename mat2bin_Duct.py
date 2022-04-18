@@ -66,11 +66,13 @@ def write_dynamic(f, ml_f, ml_c):
   # **********************************
   f.write(struct.pack('i', (ndisc * ndvars) + (ncell * ncvars))) # total number of simulated values
 
-  #f.write(struct.pack('f', flow.min()))  # minimum flow value
-  # TO DO - put all minimum values here
-  
-  #f.write(struct.pack('f', flow.max()))  # maximum flow value
-  # TO DO - put all maximum values here
+  # minimum and maximum dynamic values
+  f.write(struct.pack('f', ml_f.min()))                                # minimum flow value
+  for n in range(ndvars-1):
+    f.write(struct.pack('f', ml_c[:,ncvars*ncell+n::ndvars-1].min()))  # minimum disc concentrations
+  f.write(struct.pack('f', ml_f.min()))                                # maximum flow value
+  for n in range(ndvars-1):
+    f.write(struct.pack('f', ml_c[:,ncvars*ncell+n::ndvars-1].min()))  # maximum disc concentrations
   
   for df, dc in zip(ml_f, ml_c):   # for each time step...
     for val in df: 
