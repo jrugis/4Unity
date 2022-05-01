@@ -12,8 +12,26 @@ fname = 'dynamic_data/dynamic_flow.mat'   #
 cname = 'dynamic_data/dynamic_data.mat'   #
 
 ##################################################################
+# globals
+##################################################################
+
+# ********* HARD CODED *************
+ndisc = 191  # number of discs
+ndvars = 7   #    "      disc vars: flow + 6x concentrations (Na, K, Cl, HCO, H, CO2) 
+ncell = 101  #    "      active cells
+ncvars = 9   #    "      cell concentrations (Va, Vb, cell volume, Na, K, Cl, HCO, H, CO2)                     
+# **********************************
+
+##################################################################
 # functions
 ##################################################################
+
+# convert H to pH
+def H_pH(ml_c):
+  for row in ml_c:
+    for i in range(ndisc):
+      idx = ncell*ncvars + i*(ndvars-1) + 4
+      row[idx] = -np.log10(row[idx]/1000.0)
 
 # write fixed duct data to bin file for unity
 def write_fixed(f,  ml):
@@ -58,21 +76,15 @@ def write_dynamic(f, ml_f, ml_c):
     # **********************************
     f.write(struct.pack('f', t))          # simulation time at each step   
 
-  # ********* HARD CODED *************
-  ndisc = 191  # number of discs
-  ndvars = 7   #    "      disc vars (flow + 6x concentrations) 
-  ncell = 101  #    "      active cells
-  ncvars = 9   #    "      cell concentrations                           
-  # **********************************
   f.write(struct.pack('i', (ndisc * ndvars) + (ncell * ncvars))) # total number of simulated values
 
   # minimum and maximum dynamic values
   f.write(struct.pack('f', ml_f.min()))                                # minimum flow value
   for n in range(ndvars-1):
     f.write(struct.pack('f', ml_c[:,ncvars*ncell+n::ndvars-1].min()))  # minimum disc concentrations
-  f.write(struct.pack('f', ml_f.min()))                                # maximum flow value
+  f.write(struct.pack('f', ml_f.max()))                                # maximum flow value
   for n in range(ndvars-1):
-    f.write(struct.pack('f', ml_c[:,ncvars*ncell+n::ndvars-1].min()))  # maximum disc concentrations
+    f.write(struct.pack('f', ml_c[:,ncvars*ncell+n::ndvars-1].max()))  # maximum disc concentrations
   
   for df, dc in zip(ml_f, ml_c):   # for each time step...
     for val in df: 
@@ -86,7 +98,7 @@ def write_dynamic(f, ml_f, ml_c):
 # main program
 ##################################################################
 
-f1 = open(uname, 'wb')                # create binary file for Unity
+f1 = open(uname, 'wb')         # create binary file for Unity
 
 ml = sc.loadmat(dname)         # get duct disc data (Matlab)
 #print('keys:', ml.keys())
@@ -96,6 +108,10 @@ write_fixed(f1, ml)      # write fixed duct data (binary)
 # write dynamic data
 ml_flow = sc.loadmat(fname)  # disc flow rates
 ml_conc = sc.loadmat(cname)  # disc and cell concentrations
+#print('keys:', ml_conc.keys())
+#print(ml_conc['dynamic_data'].dtype)
+#print(ml_conc['dynamic_data'].shape)
+H_pH(ml_conc['dynamic_data']) # convert H to pH
 write_dynamic(f1, ml_flow['dynamic_flow'], ml_conc['dynamic_data'])
 
 f1.close()    # close binary file
