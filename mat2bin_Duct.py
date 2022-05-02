@@ -79,14 +79,19 @@ def write_dynamic(f, ml_f, ml_c):
   f.write(struct.pack('i', (ndisc * ndvars) + (ncell * ncvars))) # total number of simulated values
 
   # minimum and maximum dynamic values
+  for n in range(ncvars):
+    f.write(struct.pack('f', ml_c[:,n:ncvars*ncell:ncvars].min()))  # minimum cell concentrations
   f.write(struct.pack('f', ml_f.min()))                                # minimum flow value
   for n in range(ndvars-1):
     f.write(struct.pack('f', ml_c[:,ncvars*ncell+n::ndvars-1].min()))  # minimum disc concentrations
+  for n in range(ncvars):
+    f.write(struct.pack('f', ml_c[:,n:ncvars*ncell:ncvars].max()))  # maximum cell concentrations
   f.write(struct.pack('f', ml_f.max()))                                # maximum flow value
   for n in range(ndvars-1):
     f.write(struct.pack('f', ml_c[:,ncvars*ncell+n::ndvars-1].max()))  # maximum disc concentrations
   
-  for df, dc in zip(ml_f, ml_c):   # for each time step...
+  # for each time step...
+  for df, dc in zip(ml_f, ml_c):   
     for val in df: 
       f.write(struct.pack('f', val))     # write flow data
     for val in dc: 
@@ -107,7 +112,7 @@ write_fixed(f1, ml)      # write fixed duct data (binary)
 
 # write dynamic data
 ml_flow = sc.loadmat(fname)  # disc flow rates
-ml_conc = sc.loadmat(cname)  # disc and cell concentrations
+ml_conc = sc.loadmat(cname)  # cell and disc concentrations
 #print('keys:', ml_conc.keys())
 #print(ml_conc['dynamic_data'].dtype)
 #print(ml_conc['dynamic_data'].shape)
