@@ -7,7 +7,7 @@ import scipy.io as sc
 import struct
 
 uname = '_4Unity_duct.bin'                # binary output file
-dname = 'dynamic_data/lumen_prop.mat'     # Matlab data input files
+dname = 'dynamic_data/Lumen_prop.mat'     # Matlab data input files
 fname = 'dynamic_data/dynamic_flow.mat'   #
 cname = 'dynamic_data/dynamic_data.mat'   #
 
@@ -17,9 +17,9 @@ cname = 'dynamic_data/dynamic_data.mat'   #
 
 # ********* HARD CODED *************
 ndisc = 191  # number of discs
-ndvars = 7   #    "      disc vars: flow + 6x concentrations (Na, K, Cl, HCO, H, CO2) 
-ncell = 101  #    "      active cells
-ncvars = 9   #    "      cell concentrations (Va, Vb, cell volume, Na, K, Cl, HCO, H, CO2)                     
+ndvars = 6   #    "      disc vars: flow + 5x concentrations (Na, K, Cl, HCO, pH) 
+ncell = 111  #    "      active cells
+ncvars = 5   #    "      cell concentrations (Na, K, Cl, HCO, pH)                     
 # **********************************
 
 ##################################################################
@@ -80,7 +80,9 @@ def write_dynamic(f, ml_f, ml_c):
 
   # minimum and maximum dynamic values
   for n in range(ncvars):
-    f.write(struct.pack('f', ml_c[:,n:ncvars*ncell:ncvars].min()))  # minimum cell concentrations
+    #f.write(struct.pack('f', ml_c[:,n:ncvars*ncell:ncvars].min()))  # minimum cell concentrations
+    a = ml_c[:,n:ncvars*ncell:ncvars]         # minimum cell concentrations 
+    f.write(struct.pack('f', a[a!=0].min()))  # skip "dead" cells
   f.write(struct.pack('f', ml_f.min()))                                # minimum flow value
   for n in range(ndvars-1):
     f.write(struct.pack('f', ml_c[:,ncvars*ncell+n::ndvars-1].min()))  # minimum disc concentrations
@@ -114,10 +116,13 @@ write_fixed(f1, ml)      # write fixed duct data (binary)
 ml_flow = sc.loadmat(fname)  # disc flow rates
 ml_conc = sc.loadmat(cname)  # cell and disc concentrations
 #print('keys:', ml_conc.keys())
-#print(ml_conc['dynamic_data'].dtype)
-#print(ml_conc['dynamic_data'].shape)
-H_pH(ml_conc['dynamic_data']) # convert H to pH
-write_dynamic(f1, ml_flow['dynamic_flow'], ml_conc['dynamic_data'])
+#print(ml_conc['zzzz'].dtype)
+#print(ml_conc['zzzz'].shape)
+#H_pH(ml_conc['dynamic_data']) # convert H to pH
+#print('keys:', ml_flow.keys())
+#rint(ml_flow['flowrate'].dtype)
+#rint(ml_flow['flowrate'].shape)
+write_dynamic(f1, ml_flow['flowrate'], ml_conc['zzzz'])
 
 f1.close()    # close binary file
 
