@@ -1,5 +1,6 @@
 *.bin
 dynamic_data/
+acinus_data/
 .DS_store
 
 # Byte-compiled / optimized / DLL files
