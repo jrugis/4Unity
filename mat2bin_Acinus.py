@@ -12,7 +12,7 @@ import struct
 ##################################################################
 
 # ********* HARD CODED *************
-ncells = 14  # number of acinii
+ncells = 14  # number of cells
 # **********************************
 
 ##################################################################
@@ -55,5 +55,5 @@ for row in C:                    # for each timestep...
 
 f.close()    # close binary file
 
-plt.plot(ml['time_samples'][0], C[:,0])
-plt.show()
+#plt.plot(ml['time_samples'][0], C[:,204])
+#plt.show()
